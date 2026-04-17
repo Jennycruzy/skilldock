@@ -1,26 +1,218 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&family=VT323&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Background layers */
+  --bg:        #0c0c14;
+  --bg-card:   #13131f;
+  --bg-card-2: #1a1a2e;
+
+  /* Purple — skill accent */
+  --purple:        #9333ea;
+  --purple-light:  #a855f7;
+  --purple-dim:    #6b21a8;
+  --purple-subtle: rgba(147, 51, 234, 0.12);
+  --purple-border: rgba(147, 51, 234, 0.35);
+
+  /* Green — price / live status */
+  --green:        #14f195;
+  --green-subtle: rgba(20, 241, 149, 0.1);
+
+  /* Gold — x402 */
+  --gold: #f59e0b;
+
+  /* Text */
+  --text-1: #ffffff;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+
+  /* Border */
+  --border:   rgba(255,255,255,0.07);
+  --border-2: rgba(255,255,255,0.12);
+
+  /* Legacy compat — used in terminal/play page */
+  --g:        #14f195;
+  --g-dim:    #0ec57a;
+  --g-muted:  #057a4a;
+  --g-border: #1c2e22;
+  --g-card:   #0d0f0d;
+  --g-bg:     #0c0c14;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+
+::selection { background: rgba(147, 51, 234, 0.3); }
+:focus-visible { outline: 1px solid var(--purple); outline-offset: 2px; }
+
+/* ── Skill card ── */
+.skill-card {
+  background: var(--bg-card);
+  border: 1px solid var(--purple-border);
+  border-radius: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.skill-card:hover {
+  border-color: var(--purple-light);
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.2), 0 8px 32px rgba(147, 51, 234, 0.12);
+  transform: translateY(-1px);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Tag pill ── */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--purple-subtle);
+  color: var(--purple-light);
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Stat card ── */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ── Filter button ── */
+.filter-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filter-btn:hover { background: var(--bg-card-2); color: var(--text-1); }
+.filter-btn.active {
+  background: var(--purple-subtle);
+  color: var(--purple-light);
+  border-color: var(--purple-border);
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(20, 241, 149, 0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(20, 241, 149, 0);   }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; } 50% { opacity: 0; }
+}
+@keyframes terminalIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fade-up    { animation: fadeUp    0.4s ease both; }
+.slide-in   { animation: slideIn   0.3s ease-out; }
+.fade-in    { animation: fadeIn    0.4s ease-out; }
+.pulse-glow { animation: pulseGlow 2s   ease-in-out infinite; }
+.cursor-blink { animation: blink 1s step-end infinite; }
+.terminal-in  { animation: terminalIn 0.2s ease-out; }
+
+/* ── Terminal / JSON ── */
+pre, code { font-family: 'Share Tech Mono', monospace; }
+.json-key     { color: var(--green); }
+.json-string  { color: #86efac; }
+.json-number  { color: var(--green); }
+.json-boolean { color: var(--green); opacity: 0.7; }
+.json-null    { color: var(--text-3); }
+
+.footer-link { color: var(--text-3); transition: color 0.15s; }
+.footer-link:hover { color: var(--text-1); }
+
+/* ── Crossmint EmbeddedAuthForm overrides ── */
+
+/* Force dark background on the form container */
+.crossmint-form-wrap > div,
+.crossmint-form-wrap [class*="container"],
+.crossmint-form-wrap [class*="wrapper"],
+.crossmint-form-wrap [class*="card"],
+.crossmint-form-wrap [class*="modal"] {
+  background: transparent !important;
+}
+
+/* Headings */
+.crossmint-form-wrap h1,
+.crossmint-form-wrap h2,
+.crossmint-form-wrap h3,
+.crossmint-form-wrap h4 {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Body text, labels, paragraphs */
+.crossmint-form-wrap p,
+.crossmint-form-wrap label,
+.crossmint-form-wrap span {
+  color: #ffffff !important;
+}
+
+/* Muted/secondary text */
+.crossmint-form-wrap [class*="subtitle"],
+.crossmint-form-wrap [class*="description"],
+.crossmint-form-wrap [class*="hint"],
+.crossmint-form-wrap [class*="helper"],
+.crossmint-form-wrap [class*="secondary"] {
+  color: #a1a1aa !important;
+}
+
+/* Buttons */
+.crossmint-form-wrap button {
+  color: #ffffff !important;
+  border-radius: 8px !important;
+}
+
+/* Text inputs and OTP inputs */
+.crossmint-form-wrap input[type="email"],
+.crossmint-form-wrap input[type="text"],
+.crossmint-form-wrap input[type="number"],
+.crossmint-form-wrap input[type="tel"],
+.crossmint-form-wrap input {
+  color: #ffffff !important;
+  background: #1a1a2e !important;
+  border-color: rgba(255,255,255,0.15) !important;
+}
+.crossmint-form-wrap input::placeholder {
+  color: #52525b !important;
 }
