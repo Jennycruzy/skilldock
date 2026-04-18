@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
+import { transferUsdcViaCrossmint } from '@/lib/crossmint-transfer';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -19,40 +20,67 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceSupabase();
 
-  const { data: existing } = await supabase
+  const { data: task } = await supabase
     .from('task_queue')
     .select('*')
     .eq('id', taskId)
     .single();
 
-  if (!existing) {
-    return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+  if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+  if (task.claimed_by !== claimedBy) return NextResponse.json({ error: 'Not the task claimer' }, { status: 403 });
+  if (task.status !== 'claimed') return NextResponse.json({ error: 'Task is not in claimed status' }, { status: 409 });
+
+  if (costUsdc > task.budget_usdc) {
+    return NextResponse.json(
+      { error: `costUsdc (${costUsdc}) exceeds task budget (${task.budget_usdc})` },
+      { status: 400 }
+    );
   }
 
-  if (existing.claimed_by !== claimedBy) {
-    return NextResponse.json({ error: 'Not the task claimer' }, { status: 403 });
-  }
-
-  if (existing.status !== 'claimed') {
-    return NextResponse.json({ error: 'Task is not in claimed status' }, { status: 409 });
-  }
-
-  // Look up wallet addresses for both agents
+  // Look up both vaults
   const { data: postingVault } = await supabase
     .from('agent_vaults')
     .select('usdc_address, crossmint_wallet_id')
-    .eq('usdc_address', existing.posted_by_wallet)
+    .eq('usdc_address', task.posted_by_wallet)
     .maybeSingle();
 
   const { data: claimingVault } = await supabase
     .from('agent_vaults')
     .select('usdc_address, crossmint_wallet_id')
-    .eq('usdc_address', existing.claimed_by_wallet)
+    .eq('usdc_address', task.claimed_by_wallet)
     .maybeSingle();
 
-  // Simulate USDC transfer between vaults
-  // In production: call Crossmint API to sign a real USDC transfer tx
-  const paymentTxHash = `vault_transfer_${Date.now()}`;
+  if (!postingVault?.crossmint_wallet_id || !claimingVault?.usdc_address) {
+    return NextResponse.json(
+      { error: 'One or both agent vaults not found. Both agents must be registered.' },
+      { status: 404 }
+    );
+  }
+
+  // Reject fake/placeholder vault addresses
+  const isFakeAddress = (addr: string) => addr.startsWith('vault_') || addr.startsWith('local_');
+  if (isFakeAddress(postingVault.usdc_address) || isFakeAddress(claimingVault.usdc_address)) {
+    return NextResponse.json(
+      { error: 'One or both vaults have placeholder addresses. Re-register agents with CROSSMINT_SERVER_API_KEY set.' },
+      { status: 400 }
+    );
+  }
+
+  // Execute real on-chain USDC transfer from posting agent vault → claiming agent vault
+  let paymentTxHash: string;
+  try {
+    paymentTxHash = await transferUsdcViaCrossmint(
+      postingVault.crossmint_wallet_id,
+      postingVault.usdc_address,
+      claimingVault.usdc_address,
+      costUsdc,
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { error: `USDC transfer failed: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 502 }
+    );
+  }
 
   const { data: updated, error } = await supabase
     .from('task_queue')
@@ -66,17 +94,14 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Log the payment in skill_executions
   await supabase.from('skill_executions').insert({
     skill_id: 'task-submit',
     tx_hash: paymentTxHash,
     amount_usdc: costUsdc,
     duration_ms: 100,
-    provider_wallet: claimingVault?.usdc_address || existing.claimed_by_wallet,
+    provider_wallet: claimingVault.usdc_address,
   });
 
   return NextResponse.json({
@@ -85,8 +110,8 @@ export async function POST(req: NextRequest) {
     result: updated.result,
     costUsdc: updated.cost_usdc,
     paymentTxHash,
-    postingAgentVault: postingVault?.usdc_address || existing.posted_by_wallet,
-    claimingAgentVault: claimingVault?.usdc_address || existing.claimed_by_wallet,
+    postingAgentVault: postingVault.usdc_address,
+    claimingAgentVault: claimingVault.usdc_address,
     explorerUrl: `https://explorer.solana.com/tx/${paymentTxHash}?cluster=devnet`,
   });
 }

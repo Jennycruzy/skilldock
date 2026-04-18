@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { withPurchPayment } from '@/lib/payment-middleware';
 import { getServiceSupabase } from '@/lib/supabase';
+import { getUsdcBalance } from '@/lib/crossmint-transfer';
 
 async function handler(req: NextRequest): Promise<Record<string, unknown>> {
   const body = await req.json();
@@ -18,18 +19,26 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
 
   const supabase = getServiceSupabase();
 
-  // Look up vault if agent is registered
-  let vaultAddress: string | null = null;
+  // Verify vault exists and has enough USDC to cover the budget
   const { data: vaultData } = await supabase
     .from('agent_vaults')
-    .select('usdc_address')
+    .select('usdc_address, crossmint_wallet_id')
     .eq('usdc_address', postedByWallet)
     .maybeSingle();
 
-  if (vaultData) {
-    vaultAddress = vaultData.usdc_address;
-  } else {
-    vaultAddress = postedByWallet;
+  if (!vaultData) {
+    throw new Error('Agent vault not found. Register your agent first to get a vault.');
+  }
+
+  const isFakeAddress = (addr: string) => addr.startsWith('vault_') || addr.startsWith('local_');
+  if (!isFakeAddress(vaultData.usdc_address)) {
+    const balance = await getUsdcBalance(vaultData.usdc_address);
+    if (balance < budget) {
+      throw new Error(
+        `INSUFFICIENT_VAULT_BALANCE: vault has ${balance.toFixed(6)} USDC, task budget is ${budget} USDC. ` +
+        `Send at least ${(budget - balance).toFixed(6)} more USDC to ${vaultData.usdc_address}`
+      );
+    }
   }
 
   const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
@@ -59,7 +68,8 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
     requiredSkills: taskData.required_skills,
     status: taskData.status,
     expiresAt: taskData.expires_at,
-    vaultAddress,
+    vaultAddress: vaultData.usdc_address,
+    vaultBalance: null,
     monitorUrl: `${APP_URL}/api/skills/task-status?taskId=${taskData.id}`,
   };
 }

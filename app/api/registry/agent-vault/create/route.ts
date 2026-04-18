@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Create Crossmint embedded wallet for this agent
-  const crossmintApiKey = process.env.CROSSMINT_SERVER_API_KEY || process.env.NEXT_PUBLIC_CROSSMINT_API_KEY;
+  const crossmintApiKey = process.env.CROSSMINT_SERVER_API_KEY;
   let walletId = `local_${agentId}`;
   let walletAddress = `vault_${agentId.replace(/-/g, '').slice(0, 32)}`;
 
