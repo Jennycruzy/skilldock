@@ -168,13 +168,24 @@ function DynamicForm({
                 }}
               />
             ) : (
-              <input
-                type="text"
-                value={values[key] || ''}
-                onChange={(e) => onChange(key, e.target.value)}
-                placeholder={field.description || `Enter ${key}...`}
-                style={inputStyle}
-              />
+              <>
+                <input
+                  type="text"
+                  value={values[key] || ''}
+                  onChange={(e) => onChange(key, e.target.value)}
+                  placeholder={
+                    field.type === 'array'
+                      ? `e.g. alice@gmail.com, bob@gmail.com`
+                      : field.description || `Enter ${key}...`
+                  }
+                  style={inputStyle}
+                />
+                {field.type === 'array' && (
+                  <div style={{ fontSize: '11px', color: G_MUTED, marginTop: '5px' }}>
+                    Separate multiple values with commas
+                  </div>
+                )}
+              </>
             )}
           </div>
         );

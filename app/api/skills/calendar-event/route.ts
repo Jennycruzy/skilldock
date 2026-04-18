@@ -22,7 +22,12 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
     timezone?: string;
   };
 
-  if (!title || !startTime || !endTime || !attendeeEmails?.length) {
+  // Accept comma-separated string or array
+  const emailList: string[] = Array.isArray(attendeeEmails)
+    ? attendeeEmails
+    : String(attendeeEmails).split(',').map(e => e.trim()).filter(Boolean);
+
+  if (!title || !startTime || !endTime || !emailList.length) {
     throw new Error('title, startTime, endTime, and attendeeEmails are required');
   }
 
@@ -55,7 +60,7 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
     description: eventDescription,
     start: { dateTime: startTime, timeZone: timezone },
     end: { dateTime: endTime, timeZone: timezone },
-    attendees: attendeeEmails.map((email: string) => ({ email })),
+    attendees: emailList.map((email: string) => ({ email })),
     conferenceData: meetingLink
       ? {
           entryPoints: [{ entryPointType: 'video', uri: meetingLink, label: 'Join Meeting' }],
