@@ -31,6 +31,11 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
     throw new Error('title, startTime, endTime, and attendeeEmails are required');
   }
 
+  // Normalize datetime: add :00 seconds if missing (e.g. 2026-04-20T14:00 → 2026-04-20T14:00:00)
+  const normalizeDate = (dt: string) => /T\d{2}:\d{2}$/.test(dt) ? dt + ':00' : dt;
+  const normStart = normalizeDate(startTime);
+  const normEnd = normalizeDate(endTime);
+
   const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
@@ -58,8 +63,8 @@ async function handler(req: NextRequest): Promise<Record<string, unknown>> {
   const eventBody: Record<string, unknown> = {
     summary: title,
     description: eventDescription,
-    start: { dateTime: startTime, timeZone: timezone },
-    end: { dateTime: endTime, timeZone: timezone },
+    start: { dateTime: normStart, timeZone: timezone },
+    end: { dateTime: normEnd, timeZone: timezone },
     attendees: emailList.map((email: string) => ({ email })),
     conferenceData: meetingLink
       ? {
