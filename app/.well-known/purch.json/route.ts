@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import { SKILLS_REGISTRY } from '@/lib/skills-registry';
 
 export async function GET() {
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://skilldock.vercel.app';
+  const APP_URL = 'https://skilldock.duckdns.org';
   const FACILITATOR = process.env.NEXT_PUBLIC_PURCH_FACILITATOR_URL || 'https://app.purch.xyz/facilitator';
   const NETWORK = `solana:${process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'}`;
 
   return NextResponse.json(
     {
       provider: 'SkillDock',
-      version: '1.0.0',
-      description: 'Pay-per-skill AI marketplace powered by Purch x402 on Solana USDC',
+      version: '2.0.0',
+      description: 'Pay-per-skill AI marketplace with per-agent treasury vaults powered by Purch x402 on Solana USDC',
       url: APP_URL,
       facilitator: FACILITATOR,
       network: NETWORK,
@@ -27,6 +27,7 @@ export async function GET() {
         outputSchema: s.outputSchema,
         tags: s.tags,
         mcpToolDefinition: s.mcpToolDefinition,
+        mcpDownloadUrl: `${APP_URL}/api/skills/${s.id}/mcp`,
       })),
     },
     {

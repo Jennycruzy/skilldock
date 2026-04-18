@@ -200,8 +200,8 @@ export default function PlaygroundPage() {
   const [lastResult, setLastResult] = useState<Record<string, unknown> | null>(null);
   const [copiedOutput, setCopiedOutput] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
-  const [chainFirst, setChainFirst] = useState('scrape');
-  const [chainSecond, setChainSecond] = useState('summarize');
+  const [chainFirst, setChainFirst] = useState('whale-tail');
+  const [chainSecond, setChainSecond] = useState('pdf-generate');
 
   const addLine = useCallback((content: string, type: TerminalLine['type'] = 'info') => {
     setLines((prev) => [...prev, { timestamp: ts(), content, type }]);

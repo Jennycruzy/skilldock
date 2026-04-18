@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       allowedOrigins: ['skilldock.duckdns.org', '38.49.216.59'],
     },
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
   },
 
   // Allow cross-origin requests for the API (MCP clients, agents)
