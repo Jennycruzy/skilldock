@@ -166,7 +166,7 @@ export default function UsdcSplitPlayPage() {
     finally { setRunning(false); }
   }
 
-  // HUMAN MODE: send directly from connected wallet to each recipient
+  // HUMAN MODE: pay x402 skill fee first, then send directly from wallet to each recipient
   async function runHumanSplit() {
     if (running || validRecipients.length === 0) return;
     if (!connected || !solanaWallet || !walletAddress) {
@@ -174,12 +174,52 @@ export default function UsdcSplitPlayPage() {
     }
     setRunning(true); setLines([]);
     addLine(`Wallet: ${walletAddress.slice(0,4)}…${walletAddress.slice(-4)}`, 'success');
-    addLine(`Sending to ${validRecipients.length} recipients...`, 'info');
+
+    const body = {
+      directWallet: walletAddress,
+      recipients: validRecipients.map(r => ({ address: r.address, amount: parseFloat(r.amount) })),
+      memo: memo || undefined,
+    };
+
+    // Step 1: probe to get 402 + skill fee
+    addLine(`→ POST /api/skills/usdc-split (${validRecipients.length} recipients)`, 'info');
+    const probe = await fetch('/api/skills/usdc-split', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    addLine(`← ${probe.status} ${probe.status === 402 ? 'Payment Required' : probe.statusText}`, 'info');
+
+    if (probe.status === 402) {
+      const payReqs = await probe.json() as Record<string, unknown>;
+      const atomicAmount = parseInt((payReqs.amount as string) || '1000');
+      const feeUsdc = (atomicAmount / 1_000_000).toFixed(4);
+      addLine(`Skill fee: $${feeUsdc} USDC (${validRecipients.length} × $0.006)`, 'warning');
+
+      let paymentHeader: string;
+      try {
+        addLine('Paying skill fee...', 'info');
+        const txResult = await solanaWallet.send(payReqs.payTo as string, 'usdc', feeUsdc);
+        addLine(`✓ Fee paid: ${(txResult.hash ?? '').slice(0,8)}…`, 'success');
+        paymentHeader = encodePaymentHeader(txResult.hash ?? '', null, payReqs as { amount: string; payTo: string; network: string });
+      } catch (err) {
+        addLine(`✗ Fee payment failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
+        setRunning(false); return;
+      }
+
+      // Step 2: confirm payment with API
+      const confirm = await fetch('/api/skills/usdc-split', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-PAYMENT': paymentHeader }, body: JSON.stringify(body) });
+      if (!confirm.ok) {
+        const err = await confirm.json() as Record<string, unknown>;
+        addLine(`✗ Skill confirmation failed: ${err.error}`, 'error');
+        setRunning(false); return;
+      }
+      addLine('✓ Skill fee confirmed', 'success');
+    }
+
+    // Step 3: now send directly to each recipient
+    addLine(`→ Sending to ${validRecipients.length} recipients...`, 'info');
     let successCount = 0; let totalSent = 0;
 
     for (const r of validRecipients) {
       const amt = parseFloat(r.amount).toFixed(6);
-      addLine(`→ Sending $${amt} to ${r.address.slice(0,6)}…${r.address.slice(-4)}`, 'info');
+      addLine(`→ $${amt} → ${r.address.slice(0,6)}…${r.address.slice(-4)}`, 'info');
       try {
         const txResult = await solanaWallet.send(r.address, 'usdc', amt);
         addLine(`  ✓ ${(txResult.hash ?? '').slice(0,8)}… · $${amt} sent`, 'success');

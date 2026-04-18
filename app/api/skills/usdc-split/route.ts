@@ -68,14 +68,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { agentId, recipients, memo } = body as {
-    agentId: string;
+  const { agentId, directWallet, recipients, memo } = body as {
+    agentId?: string;
+    directWallet?: string;
     recipients: Array<{ address: string; amount: number }>;
     memo?: string;
   };
 
-  if (!agentId) {
-    return NextResponse.json({ error: 'agentId is required' }, { status: 400 });
+  if (!agentId && !directWallet) {
+    return NextResponse.json({ error: 'agentId or directWallet is required' }, { status: 400 });
   }
   if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
     return NextResponse.json({ error: 'recipients array is required' }, { status: 400 });
@@ -101,6 +102,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         'payment-required': encoded,
         'X-PAYMENT-REQUIRED': 'true',
       },
+    });
+  }
+
+  // Direct wallet mode: payment validated, client handles transfers themselves
+  if (directWallet) {
+    const txHash = `direct_split_${Date.now()}`;
+    const supabase = getServiceSupabase();
+    await supabase.from('skill_executions').insert({
+      skill_id: 'usdc-split',
+      tx_hash: txHash,
+      amount_usdc: dynamicPrice,
+      duration_ms: 10,
+      provider_wallet: directWallet,
+    });
+    return NextResponse.json({
+      success: true,
+      mode: 'direct',
+      directWallet,
+      recipientCount: recipients.length,
+      totalAmountToSend: recipients.reduce((s, r) => s + r.amount, 0),
+      memo: memo || null,
+      feeCollected: dynamicPrice,
+      executedAt: new Date().toISOString(),
     });
   }
 
